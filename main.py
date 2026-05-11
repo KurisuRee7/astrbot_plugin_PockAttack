@@ -75,7 +75,7 @@ group_list = [
      
 ]
 
-@register("PockAttack", "Louie", "戳一戳攻击插件", "1.0.0", "https://github.com/yourrepo")
+@register("PockAttack", "KurisuRee7", "戳一戳攻击插件", "1.0.0", "https://github.com/KurisuRee7/astrbot_plugin_PockAttack")
 class PokeAttack(Star):
     def __init__(self, context: Context):
         super().__init__(context)
