@@ -1,0 +1,6 @@
+name: pockAttack # 这是你的插件的唯一识别名。
+desc:  在群聊中发送"攻击+@用户"或者其他关键词，机器人会戳一戳该用户。 # 插件简短描述
+help: 发送"攻击 @用户"即可 # 插件的帮助信息
+version: v1.0 # 插件版本号。格式：v1.1.1 或者 v1.1
+author: LouieKH359 # 作者
+repo: https://github.com/LouieKH359/PockAttack # 插件的仓库地址
