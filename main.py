@@ -1,10 +1,9 @@
 import random
 import time
-import re
 from astrbot.api.all import *
 from astrbot.api.event import filter, AstrMessageEvent
 import astrbot.api.message_components as Comp
-
+import asyncio
 # 关键词列表
 keywords = ["攻击", "猛攻", "戳", "草饲", "曹飞"]
 # 冷却话术列表
@@ -74,102 +73,83 @@ end_txt = [
 class PokeAttack(Star):
     def __init__(self, context: Context):
         super().__init__(context)
-        self.cooling_down = False
-        self.cooling_end_time = 0
+        self.group_cooling = {}
 
     @event_message_type(EventMessageType.GROUP_MESSAGE)
     async def handle_group_message(self, event: AstrMessageEvent):
-        message_obj = event.message_obj # 获取消息对象
-        message_str = message_obj.message_str # 消息文本内容
-        self_id = event.get_self_id() # 机器人QQ号
-        group_id = message_obj.group_id # 群号
-
-        # 检查消息开头是否有关键词
+        message_obj = event.message_obj
+        message_str = message_obj.message_str
+        self_id = event.get_self_id()
+        group_id = message_obj.group_id
+    
         for keyword in keywords:
             if message_str.startswith(keyword):
+                # 判断是否有感叹号
+                has_exclamation = (
+                        message_str.startswith(keyword + "！")
+                        or
+                        message_str.startswith(keyword + "!")
+                    )
+                
+                # 提取 @ 的用户
+                messages = event.get_messages()
+                target_user_id = next((str(seg.qq) for seg in messages if isinstance(seg, Comp.At)), None)
+                
+                if target_user_id is None:
+                    return
+                
+                if str(target_user_id) == str(self_id):
+                    yield event.plain_result(random.choice(self_poke_messages))
+                    return
+                
+                cooling_end_time = self.group_cooling.get(group_id, 0)
+                if time.time() < cooling_end_time:
+                    yield event.plain_result(random.choice(cooling_down_messages))
+                    return
+                
+                # 30% 概率触发 powering 分支
                 if random.random() < 0.3:
-                    # 确定戳一戳的次数 (有感叹号会触发更多戳戳)
-                    powering_time = random.uniform(1.2, 2)
-                    poke_times = round(powering_time * 5)
-
-                    # 提取消息中 @ 的用户
-                    messages = event.get_messages()
-                    target_user_id = next((str(seg.qq) for seg in messages if (isinstance(seg, Comp.At))), None)
-
-                    # 检查是否有 @ 的用户
-                    if target_user_id is None:
-                        return
-                    # 检查受击人是否机器人本体
-                    if str(target_user_id) == str(self_id):
-                        yield event.plain_result(random.choice(self_poke_messages)) # self_poke_messages 为不能自己戳自己的话术列表
-                        return
+                    if has_exclamation:
+                        powering_time = random.uniform(1.5, 2.5)  # 有感叹号，更长
+                    else:
+                        powering_time = random.uniform(1.0, 1.8)  # 无感叹号，较短
                     
-                    # 检查是否在冷却期
-                    if self.cooling_down and time.time() < self.cooling_end_time:
-                        yield event.plain_result(random.choice(cooling_down_messages))
-                        return
+                    poke_times = round(powering_time * 5)  # 5-12次 vs 5-9次
                     
-                    # 攻击前自嗨
                     yield event.plain_result(random.choice(powering_txt))
-                    time.sleep(powering_time)
+                    await asyncio.sleep(powering_time)
                     yield event.plain_result(random.choice(ultra_poke))
                     
-                    # 发送戳一戳
                     payloads = {"user_id": target_user_id, "group_id": group_id}
                     for _ in range(poke_times):
                         try:
                             await event.bot.api.call_action('send_poke', **payloads)
-                        except Exception as e:
+                        except Exception:
                             yield event.plain_result("插件出错，请联系管理员关闭插件")
                             pass
-                    time.sleep(1)
+                    
+                    await asyncio.sleep(1)
                     yield event.plain_result(random.choice(end_txt))
-
-                    # 进入冷却期
-                    self.cooling_down = True
-                    cooling_duration = random.randint(5, 10)
-                    self.cooling_end_time = time.time() + cooling_duration
-                    return
+                    
                 else:
-                    # 确定戳一戳的次数 (有感叹号会触发更多戳戳)
-                    if re.match(rf'^{keyword}(！|!)$', message_str):
-                            poke_times = random.randint(3, 5)
+                    # ========== 普通分支 ==========
+                    if has_exclamation:
+                        poke_times = random.randint(3, 5)   # 有感叹号，3-5次
                     else:
-                        poke_times = random.randint(2, 4)
-
-                    # 提取消息中 @ 的用户
-                    messages = event.get_messages()
-                    target_user_id = next((str(seg.qq) for seg in messages if (isinstance(seg, Comp.At))), None)
-
-                    # 检查是否有 @ 的用户
-                    if target_user_id is None:
-                        return
-                    # 检查受击人是否机器人本体
-                    if str(target_user_id) == str(self_id):
-                        yield event.plain_result(random.choice(self_poke_messages)) # self_poke_messages 为不能自己戳自己的话术列表
-                        return
+                        poke_times = random.randint(2, 4)   # 无感叹号，2-4次
                     
-                    # 检查是否在冷却期
-                    if self.cooling_down and time.time() < self.cooling_end_time:
-                        yield event.plain_result(random.choice(cooling_down_messages))
-                        return
-                    
-                    # 攻击前自嗨
                     yield event.plain_result(random.choice(received_commands_messages))
-
-                    # 发送戳一戳
+                    
                     payloads = {"user_id": target_user_id, "group_id": group_id}
                     for _ in range(poke_times):
                         try:
                             await event.bot.api.call_action('send_poke', **payloads)
-                        except Exception as e:
+                        except Exception:
                             yield event.plain_result("插件出错，请联系管理员关闭插件")
                             pass
-
-                    # 进入冷却期
-                    self.cooling_down = True
-                    cooling_duration = random.randint(5, 10)
-                    self.cooling_end_time = time.time() + cooling_duration
-                    return
-
-    
+                
+                # 进入冷却期（两个分支共用）
+                cooling_duration = random.randint(5, 10)
+                self.group_cooling[group_id] = time.time() + cooling_duration
+                return
+        
