@@ -70,11 +70,6 @@ end_txt = [
     "燃尽了😴"
 ]
 
-group_list = [
-    #  "758575911"
-     
-]
-
 @register("PockAttack", "KurisuRee7", "戳一戳攻击插件", "1.0.0", "https://github.com/KurisuRee7/astrbot_plugin_PockAttack")
 class PokeAttack(Star):
     def __init__(self, context: Context):
@@ -92,12 +87,7 @@ class PokeAttack(Star):
         # 检查消息开头是否有关键词
         for keyword in keywords:
             if message_str.startswith(keyword):
-                if random.random() < 0.3 and event.get_group_id() not in group_list:
-                    # if re.match(rf'^{keyword}(！|!)$', message_str):
-                    # 再随机决定是否触发强化版戳一戳
-                    # rand_val = random.random()
-                    # print(f"Random value: {rand_val}")
-                
+                if random.random() < 0.3:
                     # 确定戳一戳的次数 (有感叹号会触发更多戳戳)
                     powering_time = random.uniform(1.2, 2)
                     poke_times = round(powering_time * 5)
